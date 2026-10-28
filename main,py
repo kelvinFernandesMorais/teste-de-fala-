@@ -1,0 +1,209 @@
+import sounddevice as sd
+import numpy as np
+import scipy.io.wavfile as wav
+import speech_recognition as sr
+import random
+from deep_translator import MyMemoryTranslator
+
+duration = 3 
+sample_rate = 44100
+
+# Banco de dados expandido com +20 palavras por categoria
+palavras = {
+    "facil": [
+        {"portugues": "maçã", "ingles": "apple"},
+        {"portugues": "livro", "ingles": "book"},
+        {"portugues": "gato", "ingles": "cat"},
+        {"portugues": "cachorro", "ingles": "dog"},
+        {"portugues": "casa", "ingles": "house"},
+        {"portugues": "água", "ingles": "water"},
+        {"portugues": "feliz", "ingles": "happy"},
+        {"portugues": "família", "ingles": "family"},
+        {"portugues": "escola", "ingles": "school"},
+        {"portugues": "amigo", "ingles": "friend"},
+        {"portugues": "sol", "ingles": "sun"},
+        {"portugues": "lua", "ingles": "moon"},
+        {"portugues": "carro", "ingles": "car"},
+        {"portugues": "árvore", "ingles": "tree"},
+        {"portugues": "flor", "ingles": "flower"},
+        {"portugues": "peixe", "ingles": "fish"},
+        {"portugues": "pássaro", "ingles": "bird"},
+        {"portugues": "mão", "ingles": "hand"},
+        {"portugues": "pé", "ingles": "foot"},
+        {"portugues": "janela", "ingles": "window"},
+        {"portugues": "porta", "ingles": "door"},
+        {"portugues": "cadeira", "ingles": "chair"},
+        {"portugues": "mesa", "ingles": "table"},
+        {"portugues": "leite", "ingles": "milk"},
+        {"portugues": "pão", "ingles": "bread"},
+        {"portugues": "queijo", "ingles": "cheese"},
+        {"portugues": "tempo", "ingles": "time"},
+        {"portugues": "rua", "ingles": "street"},
+        {"portugues": "cidade", "ingles": "city"},
+        {"portugues": "dinheiro", "ingles": "money"}
+    ],
+    "medio": [
+        {"portugues": "desafio", "ingles": "challenge"},
+        {"portugues": "liberdade", "ingles": "freedom"},
+        {"portugues": "jornada", "ingles": "journey"},
+        {"portugues": "conhecimento", "ingles": "knowledge"},
+        {"portugues": "propósito", "ingles": "purpose"},
+        {"portugues": "cronograma", "ingles": "schedule"},
+        {"portugues": "sucesso", "ingles": "success"},
+        {"portugues": "clima", "ingles": "weather"},
+        {"portugues": "melhorar", "ingles": "improve"},
+        {"portugues": "comportamento", "ingles": "behavior"},
+        {"portugues": "ambiente", "ingles": "environment"},
+        {"portugues": "experiência", "ingles": "experience"},
+        {"portugues": "governo", "ingles": "government"},
+        {"portugues": "importante", "ingles": "important"},
+        {"portugues": "diferente", "ingles": "different"},
+        {"portugues": "situação", "ingles": "situation"},
+        {"portugues": "bonito", "ingles": "beautiful"},
+        {"portugues": "perigoso", "ingles": "dangerous"},
+        {"portugues": "saboroso", "ingles": "delicious"},
+        {"portugues": "oportunidade", "ingles": "opportunity"},
+        {"portugues": "responsabilidade", "ingles": "responsibility"},
+        {"portugues": "sociedade", "ingles": "society"},
+        {"portugues": "estranho", "ingles": "stranger"},
+        {"portugues": "surpresa", "ingles": "surprise"},
+        {"portugues": "tecnologia", "ingles": "technology"},
+        {"portugues": "voluntário", "ingles": "volunteer"},
+        {"portugues": "confortável", "ingles": "comfortable"},
+        {"portugues": "celebrar", "ingles": "celebrate"},
+        {"portugues": "desenvolver", "ingles": "develop"},
+        {"portugues": "imaginar", "ingles": "imagine"}
+    ],
+    "dificil": [
+        {"portugues": "onipresente", "ingles": "ubiquitous"},
+        {"portugues": "meticuloso", "ingles": "conscientious"},
+        {"portugues": "efêmero", "ingles": "ephemeral"},
+        {"portugues": "magnânimo", "ingles": "magnanimous"},
+        {"portugues": "cacofonia", "ingles": "cacofony"},
+        {"portugues": "ofuscar", "ingles": "obfuscate"},
+        {"portugues": "escrupuloso", "ingles": "scrupulous"},
+        {"portugues": "pernicioso", "ingles": "pernicious"},
+        {"portugues": "serendipidade", "ingles": "serendipity"},
+        {"portugues": "aquiescer", "ingles": "acquiesce"},
+        {"portugues": "anacronismo", "ingles": "anachronism"},
+        {"portugues": "idiosincrasia", "ingles": "idiosyncrasy"},
+        {"portugues": "justaposição", "ingles": "juxtaposition"},
+        {"portugues": "loquaz", "ingles": "loquacious"},
+        {"portugues": "nefasto", "ingles": "nefarious"},
+        {"portugues": "parcimônia", "ingles": "parsimony"},
+        {"portugues": "recalcitrante", "ingles": "recalcitrant"},
+        {"portugues": "sycophant (puxa-saco)", "ingles": "sycophant"},
+        {"portugues": "vociferar", "ingles": "vociferous"},
+        {"portugues": "zeloso", "ingles": "zealous"},
+        {"portugues": "caprichoso", "ingles": "capricious"},
+        {"portugues": "esotérico", "ingles": "esoteric"},
+        {"portugues": "fátuo", "ingles": "fatuous"},
+        {"portugues": "garrulo (falador)", "ingles": "garrulous"},
+        {"portugues": "incipiente", "ingles": "incipient"},
+        {"portugues": "intrépido", "ingles": "intrepid"},
+        {"portugues": "obsequioso", "ingles": "obsequious"},
+        {"portugues": "perfunctório", "ingles": "perfunctory"},
+        {"portugues": "queruloso", "ingles": "querulous"},
+        {"portugues": "eficiente", "ingles": "efficacious"}
+    ],
+    "girias": [
+        {"portugues": "dar um gelo / ignorar", "ingles": "ghost"},
+        {"portugues": "arrasar / mandar bem", "ingles": "slay"},
+        {"portugues": "irritado / chateado", "ingles": "salty"},
+        {"portugues": "ostentar / se exibir", "ingles": "flex"},
+        {"portugues": "fofoca", "ingles": "tea"},
+        {"portugues": "mentira", "ingles": "cap"},
+        {"portugues": "energia / atmosfera", "ingles": "vibe"},
+        {"portugues": "fechado / combinado", "ingles": "bet"},
+        {"portugues": "suspeito", "ingles": "sus"},
+        {"portugues": "empolgação / moda", "ingles": "hype"},
+        {"portugues": "amigo próximo / mano", "ingles": "bestie"},
+        {"portugues": "exagerado / dramático", "ingles": "extra"},
+        {"portugues": "cara / meu", "ingles": "bro"},
+        {"portugues": "estilo / elegância", "ingles": "drip"},
+        {"portugues": "óbvio / sem graça", "ingles": "basic"},
+        {"portugues": "atraente / interessante", "ingles": "snack"},
+        {"portugues": "reprovado / vergonhoso", "ingles": "cringe"},
+        {"portugues": "compreendido / entendi", "ingles": "period"},
+        {"portugues": "ficar chocado / surpreso", "ingles": "shook"},
+        {"portugues": "legal / incrível", "ingles": "dope"},
+        {"portugues": "ótimo / excelente", "ingles": "fire"},
+        {"portugues": "gênio / o melhor de todos", "ingles": "goat"},
+        {"portugues": "sair de fininho / ir embora", "ingles": "bounce"},
+        {"portugues": "relaxar / curtir", "ingles": "chill"},
+        {"portugues": "sensacional / muito bom", "ingles": "banger"},
+        {"portugues": "carisma / poder de sedução", "ingles": "rizz"},
+        {"portugues": "ciumento / invejoso", "ingles": "jelly"},
+        {"portugues": "trabalhar duro / se esforçar", "ingles": "hustle"},
+        {"portugues": "dinheiro", "ingles": "bucks"},
+        {"portugues": "falhar feio / dar errado", "ingles": "flop"}
+    ]
+}
+
+print("Este aplicativo vai testar sua habilidade em outros idiomas. No caso são inglês e espanhol")
+
+while True:
+    erros = 0
+    pontuação = 0
+    
+    escolha = input("\nEscolha o nível: \n[f] Fácil \n[m] Médio \n[d] Difícil \n[g] Gírias \nSua escolha: ").strip().lower()
+    mapeamento = {"f": "facil", "m": "medio", "d": "dificil", "g": "girias"}
+    categoria = mapeamento.get(escolha, "facil")
+
+    palavras_disponiveis = list(palavras[categoria])
+
+    while erros < 3:
+        if not palavras_disponiveis:
+            print("\n🎉 Você passou por todas as palavras! Reiniciando a lista...")
+            palavras_disponiveis = list(palavras[categoria])
+
+        palavras_rodada = random.choice(palavras_disponiveis)
+        palavras_disponiveis.remove(palavras_rodada)
+
+        print("\n========================================")
+        print(f"Como se diz e pronuncia '{palavras_rodada['portugues']}' em inglês?")
+        print(f"Erros: {erros}/3 | Restantes na lista: {len(palavras_disponiveis)}")
+        print("========================================")
+
+        input("Pressione ENTER e prepare-se para falar...")
+        print("Fale agora...")
+
+        recording = sd.rec(
+            int(duration * sample_rate),
+            samplerate=sample_rate,
+            channels=1,
+            dtype='int16'
+        )
+        sd.wait()  
+        print("Gravação concluída, processando sua pronúncia...")
+
+        wav.write("output.wav", sample_rate, recording)
+
+        recognizer = sr.Recognizer()
+        with sr.AudioFile("output.wav") as source:
+            audio = recognizer.record(source)
+            
+        try:
+            resposta_usuario = recognizer.recognize_google(audio, language="en-US").strip().lower()
+            resposta_correta = palavras_rodada['ingles'].lower()
+            
+            print(f"\nVocê pronunciou: '{resposta_usuario}'")
+            print(f"Palavra esperada: '{resposta_correta}'")
+            
+            if resposta_usuario == resposta_correta:
+                print("✨ Excelente! Pronúncia correta! ✨")
+                pontuação += 1
+            else:
+                print("❌ A pronúncia não foi idêntica.")
+                erros += 1
+                
+        except sr.UnknownValueError:
+            print("\nNão consegui entender o áudio. Conta como erro.")
+            erros += 1
+        except sr.RequestError:
+            print("\nErro de conexão com o serviço de voz.")
+
+        print(f"Pontuação atual: {pontuação}")
+
+    print(f"\n========================================")
+    print(f"Fim de jogo! Você errou 3 vezes.")
